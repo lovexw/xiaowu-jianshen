@@ -6,7 +6,7 @@
  */
 
 // ===== 配置 =====
-const APP_PASSWORD = 'xiaowuleyi2025'; // 登录密码，部署后可改
+const APP_PASSWORD = 'xw'; // 登录密码，部署后可改
 const START_DATE = '2025-08-21';
 const END_DATE = '2027-04-01';
 const EXERCISES = [
@@ -458,7 +458,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ===== 热力图 =====
+/* ===== 热力图 ===== */
 .heatmap-section {
   background: var(--card);
   border-radius: var(--radius);
@@ -479,13 +479,33 @@ body {
 .heatmap-wrap {
   overflow-x: auto;
   padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
 }
-.heatmap-grid {
-  display: inline-grid;
+.heatmap-scroll {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  min-width: max-content;
+}
+.heatmap-month {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.heatmap-month-label {
+  font-size: 10px;
+  color: var(--text-light);
+  font-weight: 500;
+  margin-bottom: 2px;
+  height: 14px;
+  line-height: 14px;
+  text-align: left;
+}
+.heatmap-week {
+  display: grid;
   grid-template-rows: repeat(7, 1fr);
-  grid-auto-flow: column;
   gap: 3px;
-  min-width: 100%;
 }
 .heatmap-cell {
   width: 13px;
@@ -496,17 +516,19 @@ body {
   cursor: pointer;
   position: relative;
 }
-.heatmap-cell:hover { transform: scale(1.4); z-index: 10; }
+.heatmap-cell:hover { transform: scale(1.5); z-index: 10; }
 .heatmap-cell.l1 { background: #c7d2fe; }
 .heatmap-cell.l2 { background: #818cf8; }
 .heatmap-cell.l3 { background: #6366f1; }
 .heatmap-cell.l4 { background: #4f46e5; }
 .heatmap-cell.empty { background: transparent; cursor: default; }
+.heatmap-cell.empty:hover { transform: none; }
 .heatmap-cell.future { background: #f8fafc; cursor: default; }
+.heatmap-cell.future:hover { transform: none; }
 
 .heatmap-tooltip {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
   background: #1e293b;
@@ -533,19 +555,6 @@ body {
 }
 .heatmap-legend .heatmap-cell { width: 11px; height: 11px; cursor: default; }
 .heatmap-legend .heatmap-cell:hover { transform: none; }
-
-.heatmap-months {
-  display: inline-grid;
-  grid-auto-flow: column;
-  gap: 3px;
-  margin-bottom: 4px;
-}
-.heatmap-month-label {
-  font-size: 10px;
-  color: var(--text-light);
-  width: 13px;
-  text-align: center;
-}
 
 /* ===== 日历视图 ===== */
 .calendar-section {
@@ -678,8 +687,7 @@ body {
     <h3>🔥 打卡热力图</h3>
     <p class="heatmap-subtitle">2025-08-21 ~ 2027-04-01 · 每个格子代表一天</p>
     <div class="heatmap-wrap">
-      <div id="heatmapMonths" class="heatmap-months"></div>
-      <div id="heatmapGrid" class="heatmap-grid"></div>
+      <div id="heatmapScroll" class="heatmap-scroll"></div>
     </div>
     <div class="heatmap-legend">
       <span>少</span>
@@ -958,84 +966,94 @@ function renderHeatmap() {
   
   const start = new Date(START_DATE);
   const end = new Date(END_DATE);
-  const today = new Date(todayStr);
+  const today = new Date(todayStr + 'T00:00:00');
   
-  // 从 START_DATE 所在周的周日开始
-  const gridStart = new Date(start);
-  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-  
-  const cells = [];
+ // 按月分组生成列
   const months = [];
-  let currentMonth = -1;
-  let monthColCount = 0;
+  const d = new Date(start.getFullYear(), start.getMonth(), 1);
   
-  const d = new Date(gridStart);
   while (d <= end) {
-    const dateStr = formatDate(d);
-    const inRange = d >= start && d <= end;
-    const isFuture = d > today;
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const monthLabel = (month + 1) + '月';
     
-    if (inRange && !isFuture) {
-      const hours = checkinMap[dateStr] || 0;
-      let level = '';
-      if (hours > 0) {
-        if (hours <= 0.5) level = 'l1';
-        else if (hours <= 1) level = 'l2';
-        else if (hours <= 2) level = 'l3';
-        else level = 'l4';
-      }
-      
-      const exercises = allCheckins.find(c => c.date === dateStr);
-      const exNames = exercises ? (exercises.exercises || []).map(e => {
-        const ex = EXERCISES.find(x => x.id === e.id);
-        return ex ? ex.name + ' ' + e.duration + 'h' : '';
-      }).join(', ') : '';
-      
-      cells.push(\`<div class="heatmap-cell \${level}" data-date="\${dateStr}"><div class="heatmap-tooltip">\${dateStr}\${exNames ? ' · ' + exNames : ''}\${hours > 0 ? ' · ' + hours + 'h' : ''}</div></div>\`);
-    } else if (isFuture && inRange) {
-      cells.push(\`<div class="heatmap-cell future"></div>\`);
-    } else {
-      cells.push(\`<div class="heatmap-cell empty"></div>\`);
+    // 该月所有需要渲染的日期
+    const monthDates = [];
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // 前置补空格到周日
+    const leadBlanks = firstDay.getDay();
+    for (let i = 0; i < leadBlanks; i++) {
+      monthDates.push(null);
     }
     
-    // 月份标签
-    if (d.getDay() === 0) {
-      if (d.getMonth() !== currentMonth) {
-        if (currentMonth !== -1) {
-          months.push(\`<div class="heatmap-month-label" style="grid-column: span \${monthColCount};font-size:10px;text-align:left;padding-left:2px">\${monthLabel(currentMonth)}</div>\`);
-        }
-        currentMonth = d.getMonth();
-        monthColCount = 0;
-      }
-      monthColCount++;
-    } else {
-      if (d.getMonth() !== currentMonth) {
-        if (currentMonth !== -1) {
-          months.push(\`<div class="heatmap-month-label" style="grid-column: span \${monthColCount};font-size:10px;text-align:left;padding-left:2px">\${monthLabel(currentMonth)}</div>\`);
-        }
-        currentMonth = d.getMonth();
-        monthColCount = 1;
+    // 该月每一天
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const dateObj = new Date(year, month, day);
+      const dateStr = formatDate(dateObj);
+      const inRange = dateObj >= start && dateObj <= end;
+      const isFuture = dateObj > today;
+      
+      if (!inRange) {
+        monthDates.push('out');
+      } else if (isFuture) {
+        monthDates.push('future');
       } else {
-        monthColCount++;
+        monthDates.push(dateStr);
       }
     }
     
-    d.setDate(d.getDate() + 1);
+    // 生成该月的格子 HTML
+    let cellsHTML = '';
+    for (const item of monthDates) {
+      if (item === null) {
+        cellsHTML += '<div class="heatmap-cell empty"></div>';
+      } else if (item === 'out') {
+        cellsHTML += '<div class="heatmap-cell empty"></div>';
+      } else if (item === 'future') {
+        cellsHTML += '<div class="heatmap-cell future"></div>';
+      } else {
+        const hours = checkinMap[item] || 0;
+        let level = '';
+        if (hours > 0) {
+          if (hours <= 0.5) level = 'l1';
+          else if (hours <= 1) level = 'l2';
+          else if (hours <= 2) level = 'l3';
+          else level = 'l4';
+        }
+        
+        const checkin = allCheckins.find(c => c.date === item);
+        let tooltip = item;
+        if (hours > 0) {
+          const exNames = (checkin.exercises || []).map(e => {
+            const ex = EXERCISES.find(x => x.id === e.id);
+            return ex ? ex.name + e.duration + 'h' : '';
+          }).filter(Boolean).join(', ');
+          tooltip = item + ' · ' + exNames + ' · 共' + hours + 'h';
+        } else {
+          tooltip = item + ' · 休息';
+        }
+        
+        cellsHTML += '<div class="heatmap-cell ' + level + '"><div class="heatmap-tooltip">' + tooltip + '</div></div>';
+      }
+    }
+    
+    // 如果该月有跨年，加上年份显示
+    let label = monthLabel;
+    if (month === 0 || d.getTime() === new Date(start.getFullYear(), start.getMonth(), 1).getTime()) {
+      label = year + '年' + monthLabel;
+    }
+    
+    months.push('<div class="heatmap-month"><div class="heatmap-month-label">' + label + '</div><div class="heatmap-week">' + cellsHTML + '</div></div>');
+    
+    d.setMonth(d.getMonth() + 1);
   }
   
-  // 最后一个月
-  if (monthColCount > 0) {
-    months.push(\`<div class="heatmap-month-label" style="grid-column: span \${monthColCount};font-size:10px;text-align:left;padding-left:2px">\${monthLabel(currentMonth)}</div>\`);
-  }
-  
-  document.getElementById('heatmapMonths').innerHTML = months.join('');
-  document.getElementById('heatmapGrid').innerHTML = cells.join('');
+  document.getElementById('heatmapScroll').innerHTML = months.join('');
 }
 
-function monthLabel(m) {
-  const labels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  return labels[m];
-}
+
 
 // 打卡进度
 function renderProgress() {
