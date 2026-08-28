@@ -501,11 +501,9 @@ line-height: 13px;
   flex: 1;
 }
 .heatmap-months-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: 14px;
-  margin-bottom: 4px;
   position: relative;
+  height: 14px;
+  margin-bottom: 4px;
 }
 .heatmap-month-label {
   font-size: 10px;
@@ -678,7 +676,14 @@ line-height: 13px;
 
   <!-- 今日打卡 -->
   <div class="today-card">
-    <h2>今日打卡</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">📋 打卡</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:13px;color:var(--text-light)">日期</label>
+        <input type="date" id="checkinDate" onchange="onDateChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none">
+        <button class="today-btn" onclick="goToday()" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;background:var(--card)">今天</button>
+      </div>
+    </div>
     <p class="subtitle">选择运动项目并记录时长,0.5小时为一个节点</p>
     <div class="exercise-list" id="exerciseList"></div>
     <div class="save-bar">
@@ -739,6 +744,7 @@ let token = localStorage.getItem('fit_token') || '';
 let allCheckins = [];
 let todayCheckin = {};
 let todayStr = '';
+let currentDate = ''; // 当前选中的打卡日期（支持补卡）
 
 // ===== 工具函数 =====
 function getTodayStr() {
@@ -804,7 +810,12 @@ async function showApp() {
   document.getElementById('app').style.display = 'block';
   
   todayStr = getTodayStr();
+  currentDate = todayStr;
   document.getElementById('todayLabel').textContent = '今天是 ' + todayStr;
+  const dateInput = document.getElementById('checkinDate');
+  dateInput.value = todayStr;
+  dateInput.max = todayStr;
+  dateInput.min = START_DATE;
   
   await loadCheckins();
   renderExerciseList();
@@ -819,8 +830,8 @@ async function loadCheckins() {
   if (data.ok) {
     allCheckins = data.data;
   }
-  // 加载今日记录
-  const todayData = await api('/api/checkin?date=' + todayStr);
+  // 加载选中日期的记录
+  const todayData = await api('/api/checkin?date=' + currentDate);
   if (todayData.ok && todayData.data) {
     todayCheckin = {};
     (todayData.data.exercises || []).forEach(ex => {
@@ -881,14 +892,15 @@ async function saveCheckin() {
 
   const data = await api('/api/checkin', {
     method: 'POST',
-    body: JSON.stringify({ date: todayStr, exercises }),
+    body: JSON.stringify({ date: currentDate, exercises }),
   });
 
   btn.disabled = false;
   btn.textContent = '保存打卡';
 
   if (data.ok) {
-    showToast('打卡成功!💪', 'success');
+    const msg = currentDate === todayStr ? '打卡成功!💪' : '补卡成功!💪 ' + currentDate;
+    showToast(msg, 'success');
     await loadCheckins();
     renderDashboard();
     renderExerciseStats();
@@ -897,6 +909,21 @@ async function saveCheckin() {
   } else {
     showToast('保存失败,请重试', 'error');
   }
+}
+
+// 切换打卡日期（补卡）
+async function onDateChange() {
+  currentDate = document.getElementById('checkinDate').value;
+  todayCheckin = {};
+  await loadCheckins();
+  renderExerciseList();
+}
+
+// 回到今天
+function goToday() {
+  currentDate = todayStr;
+  document.getElementById('checkinDate').value = todayStr;
+  loadCheckins().then(() => renderExerciseList());
 }
 
 // ===== 仪表盘 =====
