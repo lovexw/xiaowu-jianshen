@@ -802,13 +802,16 @@ function doLogout() {
 async function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-
+  
   todayStr = getTodayStr();
   document.getElementById('todayLabel').textContent = '今天是 ' + todayStr;
-
+  
   await loadCheckins();
   renderExerciseList();
-  renderTodayCheckin();
+  renderDashboard();
+  renderExerciseStats();
+  renderHeatmap();
+  renderProgress();
 }
 
 async function loadCheckins() {
@@ -980,46 +983,46 @@ function renderHeatmap() {
     const hours = (c.exercises || []).reduce((s, e) => s + e.duration, 0);
     checkinMap[c.date] = hours;
   });
-  
+
   const start = new Date(START_DATE + 'T00:00:00');
   const end = new Date(END_DATE + 'T00:00:00');
   const today = new Date(todayStr + 'T00:00:00');
-  
+
   // 星期标签
   const weekdayLabels = ['', '一', '', '三', '', '五', ''];
   const weekdaysHTML = weekdayLabels.map(l =>
     '<div class="heatmap-weekday-label">' + l + '</div>'
   ).join('');
   document.getElementById('heatmapWeekdays').innerHTML = weekdaysHTML;
-  
-  // 计算前置空格：start 日期是星期几就补几个空
+
+  // 计算前置空格:start 日期是星期几就补几个空
   const leadBlanks = start.getDay();
-  
+
   // 生成所有格子
   const cells = [];
   // 前置空白
   for (let i = 0; i < leadBlanks; i++) {
     cells.push('<div class="heatmap-cell empty"></div>');
   }
-  
-  // 生成月份标签数据（需要和格子列对齐）
+
+  // 生成月份标签数据(需要和格子列对齐)
   // 月份标签放在月份第一列的上方
   const monthLabels = []; // {colIndex, label}
   let currentMonth = -1;
   let colIndex = 0;
-  
+
   const d = new Date(start);
   while (d <= end) {
     const dateStr = formatDate(d);
     const isFuture = d > today;
-    
+
     // 检测月份切换
     if (d.getMonth() !== currentMonth) {
       monthLabels.push({ colIndex, label: d.getFullYear() + '年' + (d.getMonth() + 1) + '月' });
       currentMonth = d.getMonth();
     }
     colIndex++;
-    
+
     if (isFuture) {
       cells.push('<div class="heatmap-cell future"></div>');
     } else {
@@ -1031,7 +1034,7 @@ function renderHeatmap() {
         else if (hours <= 2) level = 'l3';
         else level = 'l4';
       }
-      
+
       const checkin = allCheckins.find(c => c.date === dateStr);
       let tooltip = dateStr;
       if (hours > 0 && checkin) {
@@ -1043,13 +1046,13 @@ function renderHeatmap() {
       } else {
         tooltip = dateStr + ' · 休息';
       }
-      
+
       cells.push('<div class="heatmap-cell ' + level + '"><div class="heatmap-tooltip">' + tooltip + '</div></div>');
     }
-    
+
     d.setDate(d.getDate() + 1);
   }
-  
+
   // 后置空白填满最后一周
   const totalCells = cells.length;
   const remainder = totalCells % 7;
@@ -1058,11 +1061,11 @@ function renderHeatmap() {
       cells.push('<div class="heatmap-cell empty"></div>');
     }
   }
-  
+
   // 计算总列数
   const totalCols = cells.length / 7;
-  
-  // 生成月份标签行：用 grid column 定位
+
+  // 生成月份标签行:用 grid column 定位
   // 每列宽度 = 13px cell + 3px gap = 16px
   const colWidth = 16;
   let monthsHTML = '';
@@ -1073,7 +1076,7 @@ function renderHeatmap() {
     const width = (nextCol - ml.colIndex) * colWidth;
     monthsHTML += '<div class="heatmap-month-label" style="position:absolute;left:' + left + 'px;width:' + width + 'px">' + ml.label + '</div>';
   }
-  
+
   document.getElementById('heatmapMonthsRow').innerHTML = monthsHTML;
   document.getElementById('heatmapMonthsRow').style.width = (totalCols * colWidth) + 'px';
   document.getElementById('heatmapGrid').innerHTML = cells.join('');
@@ -1183,15 +1186,7 @@ function renderProgress() {
   document.getElementById('loginPage').style.display = 'flex';
 })();
 
-// 每次渲染完后渲染仪表盘等
-const origShowApp = showApp;
-showApp = async function() {
-  await origShowApp();
-  renderDashboard();
-  renderExerciseStats();
-  renderHeatmap();
-  renderProgress();
-};
+
 </script>
 </body>
 </html>`;
