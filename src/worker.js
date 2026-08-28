@@ -1,12 +1,12 @@
 /**
  * 小吴乐意-健身打卡
  * Cloudflare Workers + KV
- * 记录日期：2025-08-21 ~ 2027-04-01
- * 项目：游泳、跑步机、力量训练
+ * 记录日期:2025-08-21 ~ 2027-04-01
+ * 项目:游泳、跑步机、力量训练
  */
 
 // ===== 配置 =====
-const APP_PASSWORD = 'xw'; // 登录密码，部署后可改
+const APP_PASSWORD = 'xw'; // 登录密码,部署后可改
 const START_DATE = '2025-08-21';
 const END_DATE = '2027-04-01';
 const EXERCISES = [
@@ -38,7 +38,7 @@ function formatDate(d) {
   return `${y}-${m}-${dd}`;
 }
 
-// 获取今天的日期字符串（基于本地时区 UTC+8）
+// 获取今天的日期字符串(基于本地时区 UTC+8)
 function getTodayShanghai() {
   const now = new Date();
   const shanghai = new Date(now.getTime() + 8 * 3600 * 1000);
@@ -476,36 +476,49 @@ body {
   color: var(--text-light);
   margin-bottom: 20px;
 }
-.heatmap-wrap {
-  overflow-x: auto;
-  padding-bottom: 8px;
-  -webkit-overflow-scrolling: touch;
-}
-.heatmap-scroll {
+.heatmap-container {
   display: flex;
-  gap: 4px;
-  align-items: flex-start;
-  min-width: max-content;
+  gap: 6px;
 }
-.heatmap-month {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.heatmap-weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  gap: 3px;
   flex-shrink: 0;
+  padding-top: 18px;
+}
+.heatmap-weekday-label {
+  font-size: 9px;
+  color: var(--text-light);\
+line-height: 13px;
+  text-align: right;
+  width: 20px;
+  height: 13px;
+}
+.heatmap-main {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+.heatmap-months-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 14px;
+  margin-bottom: 4px;
+  position: relative;
 }
 .heatmap-month-label {
   font-size: 10px;
   color: var(--text-light);
   font-weight: 500;
-  margin-bottom: 2px;
-  height: 14px;
-  line-height: 14px;
-  text-align: left;
+  white-space: nowrap;
 }
-.heatmap-week {
+.heatmap-grid {
   display: grid;
   grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
   gap: 3px;
+  width: max-content;
 }
 .heatmap-cell {
   width: 13px;
@@ -649,7 +662,7 @@ body {
     <p>小吴乐意 · 坚持就是胜利</p>
     <input type="password" id="passwordInput" placeholder="输入密码" onkeydown="if(event.key==='Enter')doLogin()">
     <button onclick="doLogin()">进入</button>
-    <div class="login-error" id="loginError">密码错误，请重试</div>
+    <div class="login-error" id="loginError">密码错误,请重试</div>
   </div>
 </div>
 
@@ -666,7 +679,7 @@ body {
   <!-- 今日打卡 -->
   <div class="today-card">
     <h2>今日打卡</h2>
-    <p class="subtitle">选择运动项目并记录时长，0.5小时为一个节点</p>
+    <p class="subtitle">选择运动项目并记录时长,0.5小时为一个节点</p>
     <div class="exercise-list" id="exerciseList"></div>
     <div class="save-bar">
       <button class="save-btn" id="saveBtn" onclick="saveCheckin()">保存打卡</button>
@@ -686,8 +699,12 @@ body {
   <div class="heatmap-section">
     <h3>🔥 打卡热力图</h3>
     <p class="heatmap-subtitle">2025-08-21 ~ 2027-04-01 · 每个格子代表一天</p>
-    <div class="heatmap-wrap">
-      <div id="heatmapScroll" class="heatmap-scroll"></div>
+    <div class="heatmap-container">
+      <div class="heatmap-weekdays" id="heatmapWeekdays"></div>
+      <div class="heatmap-main">
+        <div class="heatmap-months-row" id="heatmapMonthsRow"></div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+      </div>
     </div>
     <div class="heatmap-legend">
       <span>少</span>
@@ -757,12 +774,12 @@ async function doLogin() {
   const pwd = document.getElementById('passwordInput').value;
   const err = document.getElementById('loginError');
   if (!pwd) { err.style.display = 'block'; return; }
-  
+
   const data = await api('/api/login', {
     method: 'POST',
     body: JSON.stringify({ password: pwd }),
   });
-  
+
   if (data.ok) {
     token = data.token;
     localStorage.setItem('fit_token', token);
@@ -785,10 +802,10 @@ function doLogout() {
 async function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  
+
   todayStr = getTodayStr();
   document.getElementById('todayLabel').textContent = '今天是 ' + todayStr;
-  
+
   await loadCheckins();
   renderExerciseList();
   renderTodayCheckin();
@@ -854,28 +871,28 @@ async function saveCheckin() {
     showToast('请至少选择一个运动项目', 'error');
     return;
   }
-  
+
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
   btn.textContent = '保存中...';
-  
+
   const data = await api('/api/checkin', {
     method: 'POST',
     body: JSON.stringify({ date: todayStr, exercises }),
   });
-  
+
   btn.disabled = false;
   btn.textContent = '保存打卡';
-  
+
   if (data.ok) {
-    showToast('打卡成功！💪', 'success');
+    showToast('打卡成功!💪', 'success');
     await loadCheckins();
     renderDashboard();
     renderExerciseStats();
     renderHeatmap();
     renderProgress();
   } else {
-    showToast('保存失败，请重试', 'error');
+    showToast('保存失败,请重试', 'error');
   }
 }
 
@@ -885,7 +902,7 @@ function renderDashboard() {
   const totalHours = allCheckins.reduce((sum, c) => {
     return sum + (c.exercises || []).reduce((s, e) => s + e.duration, 0);
   }, 0);
-  
+
   // 连续打卡天数
   const checkinDates = new Set(allCheckins.map(c => c.date));
   let streak = 0;
@@ -894,7 +911,7 @@ function renderDashboard() {
     streak++;
     d.setDate(d.getDate() - 1);
   }
-  
+
   const html = \`
     <div class="stat-card">
       <div class="stat-icon">📅</div>
@@ -919,7 +936,7 @@ function renderDashboard() {
 function renderExerciseStats() {
   const stats = {};
   EXERCISES.forEach(ex => { stats[ex.id] = { count: 0, hours: 0 }; });
-  
+
   allCheckins.forEach(c => {
     (c.exercises || []).forEach(e => {
       if (stats[e.id]) {
@@ -928,9 +945,9 @@ function renderExerciseStats() {
       }
     });
   });
-  
+
   const maxHours = Math.max(...Object.values(stats).map(s => s.hours), 1);
-  
+
   const html = EXERCISES.map(ex => {
     const s = stats[ex.id];
     const pct = (s.hours / maxHours * 100).toFixed(0);
@@ -944,7 +961,7 @@ function renderExerciseStats() {
       </div>
     \`;
   }).join('');
-  
+
   document.getElementById('exerciseStats').innerHTML = html;
 }
 
@@ -964,93 +981,102 @@ function renderHeatmap() {
     checkinMap[c.date] = hours;
   });
   
-  const start = new Date(START_DATE);
-  const end = new Date(END_DATE);
+  const start = new Date(START_DATE + 'T00:00:00');
+  const end = new Date(END_DATE + 'T00:00:00');
   const today = new Date(todayStr + 'T00:00:00');
   
- // 按月分组生成列
-  const months = [];
-  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+  // 星期标签
+  const weekdayLabels = ['', '一', '', '三', '', '五', ''];
+  const weekdaysHTML = weekdayLabels.map(l =>
+    '<div class="heatmap-weekday-label">' + l + '</div>'
+  ).join('');
+  document.getElementById('heatmapWeekdays').innerHTML = weekdaysHTML;
   
-  while (d <= end) {
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const monthLabel = (month + 1) + '月';
-    
-    // 该月所有需要渲染的日期
-    const monthDates = [];
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    
-    // 前置补空格到周日
-    const leadBlanks = firstDay.getDay();
-    for (let i = 0; i < leadBlanks; i++) {
-      monthDates.push(null);
-    }
-    
-    // 该月每一天
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      const dateObj = new Date(year, month, day);
-      const dateStr = formatDate(dateObj);
-      const inRange = dateObj >= start && dateObj <= end;
-      const isFuture = dateObj > today;
-      
-      if (!inRange) {
-        monthDates.push('out');
-      } else if (isFuture) {
-        monthDates.push('future');
-      } else {
-        monthDates.push(dateStr);
-      }
-    }
-    
-    // 生成该月的格子 HTML
-    let cellsHTML = '';
-    for (const item of monthDates) {
-      if (item === null) {
-        cellsHTML += '<div class="heatmap-cell empty"></div>';
-      } else if (item === 'out') {
-        cellsHTML += '<div class="heatmap-cell empty"></div>';
-      } else if (item === 'future') {
-        cellsHTML += '<div class="heatmap-cell future"></div>';
-      } else {
-        const hours = checkinMap[item] || 0;
-        let level = '';
-        if (hours > 0) {
-          if (hours <= 0.5) level = 'l1';
-          else if (hours <= 1) level = 'l2';
-          else if (hours <= 2) level = 'l3';
-          else level = 'l4';
-        }
-        
-        const checkin = allCheckins.find(c => c.date === item);
-        let tooltip = item;
-        if (hours > 0) {
-          const exNames = (checkin.exercises || []).map(e => {
-            const ex = EXERCISES.find(x => x.id === e.id);
-            return ex ? ex.name + e.duration + 'h' : '';
-          }).filter(Boolean).join(', ');
-          tooltip = item + ' · ' + exNames + ' · 共' + hours + 'h';
-        } else {
-          tooltip = item + ' · 休息';
-        }
-        
-        cellsHTML += '<div class="heatmap-cell ' + level + '"><div class="heatmap-tooltip">' + tooltip + '</div></div>';
-      }
-    }
-    
-    // 如果该月有跨年，加上年份显示
-    let label = monthLabel;
-    if (month === 0 || d.getTime() === new Date(start.getFullYear(), start.getMonth(), 1).getTime()) {
-      label = year + '年' + monthLabel;
-    }
-    
-    months.push('<div class="heatmap-month"><div class="heatmap-month-label">' + label + '</div><div class="heatmap-week">' + cellsHTML + '</div></div>');
-    
-    d.setMonth(d.getMonth() + 1);
+  // 计算前置空格：start 日期是星期几就补几个空
+  const leadBlanks = start.getDay();
+  
+  // 生成所有格子
+  const cells = [];
+  // 前置空白
+  for (let i = 0; i < leadBlanks; i++) {
+    cells.push('<div class="heatmap-cell empty"></div>');
   }
   
-  document.getElementById('heatmapScroll').innerHTML = months.join('');
+  // 生成月份标签数据（需要和格子列对齐）
+  // 月份标签放在月份第一列的上方
+  const monthLabels = []; // {colIndex, label}
+  let currentMonth = -1;
+  let colIndex = 0;
+  
+  const d = new Date(start);
+  while (d <= end) {
+    const dateStr = formatDate(d);
+    const isFuture = d > today;
+    
+    // 检测月份切换
+    if (d.getMonth() !== currentMonth) {
+      monthLabels.push({ colIndex, label: d.getFullYear() + '年' + (d.getMonth() + 1) + '月' });
+      currentMonth = d.getMonth();
+    }
+    colIndex++;
+    
+    if (isFuture) {
+      cells.push('<div class="heatmap-cell future"></div>');
+    } else {
+      const hours = checkinMap[dateStr] || 0;
+      let level = '';
+      if (hours > 0) {
+        if (hours <= 0.5) level = 'l1';
+        else if (hours <= 1) level = 'l2';
+        else if (hours <= 2) level = 'l3';
+        else level = 'l4';
+      }
+      
+      const checkin = allCheckins.find(c => c.date === dateStr);
+      let tooltip = dateStr;
+      if (hours > 0 && checkin) {
+        const exNames = (checkin.exercises || []).map(e => {
+          const ex = EXERCISES.find(x => x.id === e.id);
+          return ex ? ex.name + e.duration + 'h' : '';
+        }).filter(Boolean).join(', ');
+        tooltip = dateStr + ' · ' + exNames + ' · 共' + hours + 'h';
+      } else {
+        tooltip = dateStr + ' · 休息';
+      }
+      
+      cells.push('<div class="heatmap-cell ' + level + '"><div class="heatmap-tooltip">' + tooltip + '</div></div>');
+    }
+    
+    d.setDate(d.getDate() + 1);
+  }
+  
+  // 后置空白填满最后一周
+  const totalCells = cells.length;
+  const remainder = totalCells % 7;
+  if (remainder > 0) {
+    for (let i = 0; i < 7 - remainder; i++) {
+      cells.push('<div class="heatmap-cell empty"></div>');
+    }
+  }
+  
+  // 计算总列数
+  const totalCols = cells.length / 7;
+  
+  // 生成月份标签行：用 grid column 定位
+  // 每列宽度 = 13px cell + 3px gap = 16px
+  const colWidth = 16;
+  let monthsHTML = '';
+  for (let i = 0; i < monthLabels.length; i++) {
+    const ml = monthLabels[i];
+    const left = ml.colIndex * colWidth;
+    const nextCol = i < monthLabels.length - 1 ? monthLabels[i + 1].colIndex : totalCols;
+    const width = (nextCol - ml.colIndex) * colWidth;
+    monthsHTML += '<div class="heatmap-month-label" style="position:absolute;left:' + left + 'px;width:' + width + 'px">' + ml.label + '</div>';
+  }
+  
+  document.getElementById('heatmapMonthsRow').innerHTML = monthsHTML;
+  document.getElementById('heatmapMonthsRow').style.width = (totalCols * colWidth) + 'px';
+  document.getElementById('heatmapGrid').innerHTML = cells.join('');
 }
 
 
@@ -1061,7 +1087,7 @@ function renderProgress() {
   const start = new Date(START_DATE);
   const end = new Date(END_DATE);
   const today = new Date(todayStr);
-  
+
   // 总天数
   const totalDays = Math.round((end - start) / 86400000) + 1;
   // 已过天数
@@ -1070,7 +1096,7 @@ function renderProgress() {
   const checkedDays = allCheckins.length;
   // 打卡率
   const rate = passedDays > 0 ? (checkedDays / passedDays * 100).toFixed(1) : 0;
-  
+
   // 连续打卡
   let streak = 0;
   let d = new Date(today);
@@ -1078,10 +1104,10 @@ function renderProgress() {
     streak++;
     d.setDate(d.getDate() - 1);
   }
-  
+
   // 剩余天数
   const remainingDays = Math.round((end - today) / 86400000);
-  
+
   // 最长连续
   const sortedDates = [...checkinDates].sort();
   let maxStreak = 0;
@@ -1102,12 +1128,12 @@ function renderProgress() {
     prevDate = date;
   }
   maxStreak = Math.max(maxStreak, tempStreak);
-  
+
   const html = \`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px">
         <div style="font-size:28px;font-weight:800;color:var(--primary)">\${rate}%</div>
-        <div style="font-size:12px;color:var(--text-light);margin-top:4px">打卡率（已过\${Math.max(0, passedDays)}天）</div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">打卡率(已过\${Math.max(0, passedDays)}天)</div>
       </div>
       <div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px">
         <div style="font-size:28px;font-weight:800;color:var(--success)">\${maxStreak}</div>
